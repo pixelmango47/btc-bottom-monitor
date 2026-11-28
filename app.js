@@ -1,4 +1,4 @@
-/* BTC Value Monitor v9 */
+/* BTC Value Monitor v9.1 */
 (function () {
   "use strict";
   // ---------- helpers ----------
@@ -2107,7 +2107,11 @@
   (function () {
     var board = $("board"); if (!board) return;
     // on a phone the price card starts as a summary (price and the three answers)
-    var tc0 = board.querySelector(".top-card"); if (tc0 && window.innerWidth <= 560) tc0.setAttribute("data-def", "sum");
+    // (it follows the width: a page opened in a hidden or narrow window gets the full card once the window is wide)
+    var tc0 = board.querySelector(".top-card");
+    function topDef() { if (!tc0) return; var d = window.innerWidth > 0 && window.innerWidth <= 560 ? "sum" : "full"; if (tc0.getAttribute("data-def") !== d) { tc0.setAttribute("data-def", d); cvApply(tc0); flowFix(); } }
+    if (tc0) tc0.setAttribute("data-def", window.innerWidth > 0 && window.innerWidth <= 560 ? "sum" : "full");
+    var tdT = 0; window.addEventListener("resize", function () { clearTimeout(tdT); tdT = setTimeout(topDef, 150); });
     cvCards().forEach(function (c) {
       var hd = c.querySelector(".card-h"); if (!hd || hd.parentNode !== c) return;
       var nm = esc(c.getAttribute("data-name") || c.getAttribute("data-card")), top = c.classList.contains("top-card");
@@ -2441,6 +2445,23 @@
   S.dataAt = Date.now();
   fetchPrice(); fetchHourly(); fetchDaily(); loadData(); loadHist(); loadRecent();
   fetchCM(); fetchFng(); fetchLev(); fetchStable(); fetchPremium(); fetchCbbi();
+  // ---------- stay on the newest version ----------
+  // Now and then the page reads the published index.html. If it loads a newer app.js than this one, the page loads
+  // itself again (once per version in this tab), so an open tab or a cached copy never stays on an old version.
+  (function () {
+    var me = document.querySelector('script[src^="app.js"]'), cur = me ? me.getAttribute("src") : "";
+    if (!cur || !window.fetch) return;
+    function check() {
+      fetch("index.html?nc=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (t) {
+        var m = /<script src="(app\.js\?v=([^"]+))"/.exec(t || ""); if (!m || m[1] === cur) return;
+        try { var k = "bbm.upd." + m[2]; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, "1"); } catch (e) { return; }
+        var q = new URLSearchParams(location.search); q.set("v", m[2]);
+        location.replace(location.pathname + "?" + q.toString() + location.hash);
+      }).catch(function () {});
+    }
+    setTimeout(check, 3000); setInterval(check, 15 * 60 * 1000);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) check(); });
+  })();
   if (qs.get("debug") === "1") window.__bbm = { S: S, alerts: pubAlerts, cheapWindows: cheapWindows, pastDaily: pastDaily, histVal: histVal, histValAt: histValAt, parts: parts, liveRaw: liveRaw, biLive: biLive, clockNow: clockNow, histNear: histNear, scoreAt: scoreAt, closeParts: closeParts, levAt: levAt, fg7: fg7, stable30: stable30 };
   setInterval(function () { if (!document.hidden) fetchPrice(); }, 15000);
   setInterval(renderLiveAge, 1000);
